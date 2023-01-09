@@ -360,6 +360,7 @@ osqueryinstall="FALSE"
 telegrafinstall="FALSE"
 fluentbitinstall="FALSE"
 observe_jenkins_path="/var/lib/jenkins/"
+amzn_201803="FALSE"
 
 
 if [ "$1" == "--help" ]; then
@@ -417,6 +418,9 @@ fi
         --custom_fluentbit_config)
           custom_fluentbit_config="$2"
           ;;
+        --amzn_201803)
+          amzn_201803="$2"
+          ;;
         *)
 
       esac
@@ -452,6 +456,7 @@ log "branch_input: ${branch_input}"
 log "module: ${module}"
 log "observe_jenkins_path: ${observe_jenkins_path}"
 log "custom_fluentbit_config: ${custom_fluentbit_config}"
+log "amzn_201803: ${amzn_201803}"
 
 setInstallFlags
 
@@ -561,12 +566,23 @@ case ${OS} in
         printMessage "osquery"
 
         curl -L https://pkg.osquery.io/rpm/GPG | sudo tee /etc/pki/rpm-gpg/RPM-GPG-KEY-osquery
-
+        
+        if [ "$amzn_201803" == TRUE ]; then
+          sudo yum install yum-utils -y
+        fi
+        
         sudo yum-config-manager --add-repo https://pkg.osquery.io/rpm/osquery-s3-rpm.repo
         sudo yum-config-manager --enable osquery-s3-rpm-repo
         sudo yum install osquery -y
         sudo service osqueryd start 2>/dev/null || true
-        sudo systemctl enable osqueryd
+        
+        if [ "$amzn_201803" == TRUE ]; then
+          sudo chkconfig --add osqueryd
+          sudo chkconfig --level 35 osqueryd on
+        else
+          sudo systemctl enable osqueryd
+        fi
+
 
         # ################
         sourcefilename=$config_file_directory/osquery.conf
