@@ -570,7 +570,7 @@ case ${OS} in
         if [ "$amzn_201803" == TRUE ]; then
           sudo yum install yum-utils -y
         fi
-        
+
         sudo yum-config-manager --add-repo https://pkg.osquery.io/rpm/osquery-s3-rpm.repo
         sudo yum-config-manager --enable osquery-s3-rpm-repo
         sudo yum install osquery -y
@@ -647,7 +647,14 @@ EOT
       includeFiletdAgent
 
       sudo service td-agent-bit restart
-      sudo systemctl enable td-agent-bit
+
+      if [ "$amzn_201803" == TRUE ]; then
+        sudo chkconfig --add td-agent-bit
+        sudo chkconfig --level 35 td-agent-bit on
+      else
+        sudo systemctl enable td-agent-bit
+      fi
+      
 
     fi
       # #####################################
