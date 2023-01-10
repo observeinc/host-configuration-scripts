@@ -313,6 +313,10 @@ setInstallFlags(){
               osqueryinstall="TRUE"
               telegrafinstall="TRUE"
               fluentbitinstall="TRUE"
+              if [ "$amzn_201803" == TRUE ]; then
+                fluentbitinstall="FALSE"
+              fi
+              
               ;;
             jenkins)
               fluentbitinstall="TRUE"
@@ -616,7 +620,7 @@ case ${OS} in
       # # fluent
       # #####################################
       echo "amzn_201803 = $amzn_201803"
-      if [ "$fluentbitinstall" == TRUE && "$amzn_201803" == FALSE ]; then
+      if [ "$fluentbitinstall" == TRUE ]; then
 
       printMessage "fluent"
 
