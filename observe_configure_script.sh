@@ -615,7 +615,8 @@ case ${OS} in
       # #####################################
       # # fluent
       # #####################################
-      if [ "$fluentbitinstall" == TRUE ]; then
+      echo "amzn_201803 = $amzn_201803"
+      if [ "$fluentbitinstall" == TRUE && "$amzn_201803" == FALSE ]; then
 
       printMessage "fluent"
 
@@ -648,12 +649,7 @@ EOT
 
       sudo service td-agent-bit restart
 
-      if [ "$amzn_201803" == TRUE ]; then
-        sudo chkconfig --add td-agent-bit
-        sudo chkconfig --level 35 td-agent-bit on
-      else
-        sudo systemctl enable td-agent-bit
-      fi
+      sudo systemctl enable td-agent-bit
       
 
     fi
