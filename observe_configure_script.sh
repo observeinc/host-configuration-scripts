@@ -151,7 +151,7 @@ generateTestKey(){
   echo "${OBSERVE_TEST_RUN_KEY}"
 }
 
-# identify OS and architecture
+# identify OS and architecture 
 if [ -f /etc/os-release ]; then
     #shellcheck disable=SC1091
     . /etc/os-release
@@ -610,7 +610,7 @@ testEject "${testeject}" "EJECT2"
 # BASELINEINSTALL - START
 #####################################
 
-case ${OS} in
+case ${OS} in 
     amzn|amazonlinux)
 
     log "Amazon OS"
