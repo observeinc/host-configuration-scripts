@@ -13,3 +13,4 @@ else
 fi
 
 sudo service osqueryd restart
+sudo systemctl enable osqueryd
