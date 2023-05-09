@@ -3,4 +3,4 @@ fluent/observe/observe-linux-host-filters-ec2.conf
 fluent/observe/observe-linux-host-inputs.conf
 fluent/observe/observe-linux-host-outputs.conf
 fluent/observe/observe-linux-host.conf
-fluent/observe/observe-linux-host-outputs-tail.conf
+fluent/observe/observe-linux-outputs-tail.conf
