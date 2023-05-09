@@ -1,0 +1,6 @@
+fluent/observe-linux-filters.conf
+fluent/observe-linux-host-filters-ec2.conf
+fluent/observe-linux-host-inputs.conf
+fluent/observe-linux-host-outputs.conf
+fluent/observe-linux-host.conf
+fluent/observe-linux-host-outputs-tail.conf

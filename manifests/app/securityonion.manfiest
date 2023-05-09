@@ -1,0 +1,4 @@
+fluent/observe/observe-securityonion-zeek.conf
+fluent/observe/observe-securityonion-wazuh.conf
+fluent/observe/observe-securityonion-osquery.conf
+fluent/observe/observe-linux-filters.conf

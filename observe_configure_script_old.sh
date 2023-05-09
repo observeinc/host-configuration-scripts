@@ -1,7 +1,5 @@
 #!/bin/bash
 END_OUTPUT="END_OF_OUTPUT"
-fluent_path="/etc/td-agent-bit"
-telegraf_path="/etc/telegraf"
 
 cd ~ || exit && echo "$SPACER $END_OUTPUT $SPACER"
 
@@ -702,22 +700,158 @@ case ${OS} in
       #####################################
       if [ "$osqueryinstall" == TRUE ]; then
 
-# jlb rm
+        printMessage "osquery"
 
+        curl -L https://pkg.osquery.io/rpm/GPG | sudo tee /etc/pki/rpm-gpg/RPM-GPG-KEY-osquery
+
+        if [[ $AL_VERSION == "2023" ]]; then
+          sudo dnf config-manager --add-repo https://pkg.osquery.io/rpm/osquery-s3-rpm.repo
+          sudo dnf config-manager --enable osquery-s3-rpm-repo
+          sudo dnf install osquery -y
+        else
+          sudo yum-config-manager --add-repo https://pkg.osquery.io/rpm/osquery-s3-rpm.repo
+          sudo yum-config-manager --enable osquery-s3-rpm-repo
+          sudo yum install osquery -y
+        fi
+
+        sudo service osqueryd start 2>/dev/null || true
+        sudo systemctl enable osqueryd
+
+        # ################
+        sourcefilename=$config_file_directory/osquery.conf
+        filename=/etc/osquery/osquery.conf
+
+
+        osquery_conf_filename=/etc/osquery/osquery.conf
+
+        if [ -f "$filename" ]
+        then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        sourcefilename=$config_file_directory/osquery.flags
+        filename=/etc/osquery/osquery.flags
+        osquery_flags_filename=/etc/osquery/osquery.flags
+
+        if [ -f "$filename" ]
+        then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        sudo service osqueryd restart
+
+      fi
       # #####################################
       # # fluent
       # #####################################
       if [ "$fluentbitinstall" == TRUE ]; then
 
-# jlb rem
+      printMessage "fluent"
 
+      if [[ $AL_VERSION == "2023" ]]; then
+sudo tee /etc/yum.repos.d/fluent-bit.repo > /dev/null << EOT
+[fluent-bit]
+name = Fluent Bit
+baseurl = https://packages.fluentbit.io/amazonlinux/2023/
+gpgcheck=1
+gpgkey=https://packages.fluentbit.io/fluentbit.key
+enabled=1
+EOT
+
+        sudo yum install fluent-bit -y
+
+        sourcefilename=$config_file_directory/fluent-bit.conf
+        filename=/etc/fluent-bit/fluent-bit.conf
+
+        fluent_bit_filename=/etc/fluent-bit/fluent-bit.conf
+
+        if [ -f "$filename" ]; then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        includeFilefluentAgent
+
+        sudo service fluent-bit restart
+        sudo systemctl enable fluent-bit
+      else
+sudo tee /etc/yum.repos.d/td-agent-bit.repo > /dev/null << EOT
+[td-agent-bit]
+name = TD Agent Bit
+baseurl = https://packages.fluentbit.io/amazonlinux/2/\$basearch/
+gpgcheck=1
+gpgkey=https://packages.fluentbit.io/fluentbit.key
+enabled=1
+EOT
+
+        sudo yum install td-agent-bit -y
+
+        sourcefilename=$config_file_directory/td-agent-bit.conf
+        filename=/etc/td-agent-bit/td-agent-bit.conf
+
+        td_agent_bit_filename=/etc/td-agent-bit/td-agent-bit.conf
+
+        if [ -f "$filename" ]; then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        includeFiletdAgent
+
+        sudo service td-agent-bit restart
+        sudo systemctl enable td-agent-bit
+      fi
+    fi
       # #####################################
       # # telegraf
       # #####################################
       if [ "$telegrafinstall" == TRUE ]; then
 
-# jlb rm
+      printMessage "telegraf"
 
+cat <<EOF | sudo tee /etc/yum.repos.d/influxdb.repo
+[influxdb]
+name = InfluxDB Repository - RHEL 7
+baseurl = https://repos.influxdata.com/rhel/7/\$basearch/stable
+enabled = 1
+gpgcheck = 1
+gpgkey = https://repos.influxdata.com/influxdata-archive_compat.key
+EOF
+
+# sudo tee /etc/yum.repos.d/influxdb.repo > /dev/null << EOT
+# [influxdb]
+# name = InfluxDB Repository - RHEL
+# baseurl = https://repos.influxdata.com/rhel/7/\$basearch/stable/
+# enabled = 1
+# gpgcheck = 1
+# gpgkey = https://repos.influxdata.com/influxdb.key
+# EOT
+
+      sudo yum install telegraf -y
+
+      sourcefilename=$config_file_directory/telegraf.conf
+      filename=/etc/telegraf/telegraf.conf
+
+      telegraf_conf_filename=/etc/telegraf/telegraf.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      sudo systemctl enable telegraf
+
+      sudo service telegraf restart
+
+    fi
       ################################################################################################
       ################################################################################################
           ;;
@@ -734,17 +868,130 @@ case ${OS} in
       # osquery
       #####################################
       if [ "$osqueryinstall" == TRUE ]; then
+        printMessage "osquery"
 
+        sudo yum install yum-utils -y
+
+        curl -L https://pkg.osquery.io/rpm/GPG | sudo tee /etc/pki/rpm-gpg/RPM-GPG-KEY-osquery
+
+        sudo yum-config-manager --add-repo https://pkg.osquery.io/rpm/osquery-s3-rpm.repo
+
+        sudo yum-config-manager --enable osquery-s3-rpm-repo
+
+        sudo yum install osquery -y
+
+
+        # ################
+        sourcefilename=$config_file_directory/osquery.conf
+        filename=/etc/osquery/osquery.conf
+
+        osquery_conf_filename=/etc/osquery/osquery.conf
+
+        if [ -f "$filename" ]
+        then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        sourcefilename=$config_file_directory/osquery.flags
+        filename=/etc/osquery/osquery.flags
+
+        osquery_flags_filename=/etc/osquery/osquery.flags
+
+        if [ -f "$filename" ]
+        then
+            sudo mv "$filename"  "$filename".OLD
+        fi
+
+        sudo cp "$sourcefilename" "$filename"
+
+        sudo service osqueryd restart
+        sudo systemctl enable osqueryd
+    fi
       # #####################################
       # # fluent
       # #####################################
       if [ "$fluentbitinstall" == TRUE ]; then
- 
+      printMessage "fluent"
+
+cat << EOF | sudo tee /etc/yum.repos.d/td-agent-bit.repo
+[td-agent-bit]
+name = TD Agent Bit
+baseurl = https://packages.fluentbit.io/centos/\$releasever/\$basearch/
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.fluentbit.io/fluentbit.key
+enabled=1
+EOF
+
+      sudo yum install td-agent-bit -y
+
+      sudo service td-agent-bit start
+
+      sourcefilename=$config_file_directory/td-agent-bit.conf
+      filename=/etc/td-agent-bit/td-agent-bit.conf
+
+      td_agent_bit_filename=/etc/td-agent-bit/td-agent-bit.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      includeFiletdAgent
+
+      sudo service td-agent-bit restart
+      sudo systemctl enable td-agent-bit
+
+    fi
       # #####################################
       # # telegraf
       # #####################################
       if [ "$telegrafinstall" == TRUE ]; then
+      printMessage "telegraf"
 
+cat <<EOF | sudo tee /etc/yum.repos.d/influxdb.repo
+[influxdb]
+name = InfluxDB Repository - RHEL \$releasever
+baseurl = https://repos.influxdata.com/rhel/\$releasever/\$basearch/stable
+enabled = 1
+gpgcheck = 1
+gpgkey = https://repos.influxdata.com/influxdata-archive_compat.key
+EOF
+
+# cat << EOF | sudo tee /etc/yum.repos.d/influxdb.repo
+# [influxdb]
+# name = InfluxDB Repository - RHEL \$releasever
+# baseurl = https://repos.influxdata.com/rhel/\$releasever/\$basearch/stable
+# enabled = 1
+# gpgcheck = 0
+# gpgkey = https://repos.influxdata.com/influxdb.key
+# EOF
+
+      sudo yum install telegraf -y
+
+      sourcefilename=$config_file_directory/telegraf.conf
+      filename=/etc/telegraf/telegraf.conf
+
+      telegraf_conf_filename=/etc/telegraf/telegraf.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      yum install ntp -y
+
+      sudo systemctl enable telegraf
+
+      sudo service telegraf restart
+
+    fi
       ################################################################################################
       ################################################################################################
           ;;
@@ -756,18 +1003,135 @@ case ${OS} in
       #####################################
       if [ "$osqueryinstall" == TRUE ]; then
 
+      printMessage "osquery"
 
+      sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 1484120AC4E9F8A1A577AEEE97A80C63C9D8B80B
+
+      if ! grep -Fq https://pkg.osquery.io/deb /etc/apt/sources.list.d/osquery.list
+      then
+        echo deb [arch=$ARCH] https://pkg.osquery.io/deb deb main | sudo tee -a /etc/apt/sources.list.d/osquery.list
+      fi
+
+      sudo apt-get update
+      sudo apt-get install -y osquery
+      sudo service osqueryd start 2>/dev/null || true
+
+      # ################
+      sourcefilename=$config_file_directory/osquery.conf
+      filename=/etc/osquery/osquery.conf
+
+      osquery_conf_filename=/etc/osquery/osquery.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      sourcefilename=$config_file_directory/osquery.flags
+      filename=/etc/osquery/osquery.flags
+
+      osquery_flags_filename=/etc/osquery/osquery.flags
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      sudo service osqueryd restart
+      sudo systemctl enable osqueryd
+
+      fi
 
       # #####################################
       # # fluent
       # #####################################
       if [ "$fluentbitinstall" == TRUE ]; then
+      printMessage "fluent"
 
+      wget -qO - https://packages.fluentbit.io/fluentbit.key | sudo apt-key add -
+      if ! grep -Fq "deb https://packages.fluentbit.io/"${OS}"/"${CODENAME}" "${CODENAME}" main" /etc/apt/sources.list
+      then
+        echo deb https://packages.fluentbit.io/"${OS}"/"${CODENAME}" "${CODENAME}" main | sudo tee -a /etc/apt/sources.list
+      fi
+      
+
+      sudo apt-get update
+      sudo apt-get install -y td-agent-bit
+      sudo service td-agent-bit start
+
+      sourcefilename=$config_file_directory/td-agent-bit.conf
+      filename=/etc/td-agent-bit/td-agent-bit.conf
+
+      td_agent_bit_filename=/etc/td-agent-bit/td-agent-bit.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      includeFiletdAgent
+
+      sudo service td-agent-bit restart
+      sudo systemctl enable td-agent-bit
+
+    fi
       # #####################################
       # # telegraf
       # #####################################
       if [ "$telegrafinstall" == TRUE ]; then
+      printMessage "telegraf"
+      # 2027/01/27 - Comment out old key approach
+      # https://www.influxdata.com/blog/linux-package-signing-key-rotation/
+      # wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add -
+      wget -qO- https://repos.influxdata.com/influxdata-archive_compat.key | sudo apt-key add -
+      
+      # sudo tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg >/dev/null
 
+      #shellcheck disable=SC1091
+      # 2027/01/27 - Comment out old key approach
+      #source /etc/lsb-release
+      source /etc/os-release
+
+      # 2027/01/27 - Comment out old key approach
+      if ! grep -Fq "deb https://repos.influxdata.com/${ID} ${CODENAME} stable" /etc/apt/sources.list.d/influxdb.list
+      then
+        echo "deb https://repos.influxdata.com/${ID} ${CODENAME} stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
+      fi
+      
+      #       if ! grep -Fq https://repos.influxdata.com/"${DISTRIB_ID,,}" /etc/apt/sources.list.d/influxdb.list
+      #       then
+      # sudo tee -a /etc/apt/sources.list.d/influxdb.list > /dev/null << EOT
+      # deb https://repos.influxdata.com/"${DISTRIB_ID,,}" "${DISTRIB_CODENAME}" stable
+      # EOT
+      #       fi
+
+      sudo apt-get update
+      sudo apt-get install -y telegraf
+      sudo apt-get install -y ntp
+
+      sourcefilename=$config_file_directory/telegraf.conf
+      filename=/etc/telegraf/telegraf.conf
+
+      telegraf_conf_filename=/etc/telegraf/telegraf.conf
+
+      if [ -f "$filename" ]
+      then
+          sudo mv "$filename"  "$filename".OLD
+      fi
+
+      sudo cp "$sourcefilename" "$filename"
+
+      sudo systemctl enable telegraf
+
+      sudo service telegraf restart
+
+      fi
           ;;
       ################################################################################################
       ################################################################################################
