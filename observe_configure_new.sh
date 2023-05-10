@@ -61,8 +61,10 @@ checkAgentInstallReqs () {
 }
 
 installAgent () {
-    install_results=`curl ${base_url}/installer_scripts/observe_${observe_os}_${agent}.sh --fail | bash -s`
-    echo $install_results
+    #install_results=
+    `curl ${base_url}/installer_scripts/observe_${observe_os}_${agent}.sh --fail --create-dirs --output ${config_file_directory}/installer/observe_${observe_os}_${agent}.sh`
+    `chmod 700 ${config_file_directory}/installer/observe_${observe_os}_${agent}.sh`
+    "${config_file_directory}/installer/observe_${observe_os}_${agent}.sh"
 }
 
 getOSDetails () {
@@ -78,28 +80,30 @@ fi
 
 
 case ${OS} in
-amzn|amazonlinux)
-    echo "Amazon OS"
-    observe_os="amazonlinux"
-    ;;
+    amzn|amazonlinux)
+        echo "Amazon OS"
+        observe_os="amazonlinux"
+        ;;
 
-rhel|centos)
-    echo "RHEL OS"
-    observe_os="rhelcentos"
-    ;;
+    rhel|centos)
+        echo "RHEL OS"
+        observe_os="rhelcentos"
+        ;;
 
-ubuntu|debian)
-    echo "UBUNTU OS"
-    observe_os="ubuntudebian"
-    ;;
-Darwin)
-    echo "Darwin -- JLB local testing!!"
-    observe_os="jlbtest"
-    ;;
-*)
-    echo "Unknown / Unsupported OS: \"${OS}\"  Please visit docs.observeinc.com/updatemelater to see supported OS"
-    exit 1;
-    ;;
+    ubuntu|debian)
+        echo "UBUNTU OS"
+        observe_os="ubuntudebian"
+        ;;
+
+    Darwin)
+        echo "Darwin -- JLB local testing!!"
+        observe_os="jlbtest"
+        ;;
+        
+    *)
+        echo "Unknown / Unsupported OS: \"${OS}\"  Please visit docs.observeinc.com/updatemelater to see supported OS"
+        exit 1;
+        ;;
 esac
 }
 

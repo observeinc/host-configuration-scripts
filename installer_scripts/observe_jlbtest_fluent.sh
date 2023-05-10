@@ -1,5 +1,5 @@
 #!/bin/bash
 touch ~/jlbtestfile-ran.txt
 echo "this script ran"
-sleep 100
+sleep 10
 echo "a long time"
