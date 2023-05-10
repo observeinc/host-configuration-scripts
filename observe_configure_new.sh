@@ -53,12 +53,16 @@ checkAgentInstallReqs () {
         echo "need to install fluent, or check status"
         # get agent configs
         getConfigurationFiles "$agent" "agent"
+
+        installAgent
     else
         echo "$agent not needed for this install/upgrade... skipping"
     fi
 }
 
 installAgent () {
+    installscript=`curl ${base_url}/installer_scripts/observe_${observe_os}_${agent}.sh --fail --create-dirs --output ${config_file_directory}/installers/observe_${observe_os}_${agent}.sh`
+    `exec "bash `${config_file_directory}/installers/observe_${observe_os}_${agent}.sh`
     
 }
 
