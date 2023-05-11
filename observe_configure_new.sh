@@ -26,7 +26,7 @@ declare -A config_replacements
 declare -A fluent_record_modifiers
 declare -A supported_agents
 
-supported_agents["fluent"]="/etc/td-agent-bit/"
+supported_agents["fluent"]="/etc/fluent-bit/"
 supported_agents["telegraf1"]="/etc/telegraf/"
 supported_agents["osquery1"]="/etc/osquery/"
 
