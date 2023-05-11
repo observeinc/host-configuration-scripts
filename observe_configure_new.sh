@@ -15,7 +15,7 @@ modules=()
 archive_configs="TRUE"
 observe_domain="collect.observeinc.com"
 observe_environment=""
-fluent_config_directory="/etc/td-agent-bit/"
+fluent_config_directory="/etc/fluent-bit/"
 telegraf_config_directory="/etc/telegraf/"
 osquery_config_directory="/etc/osquery/"
 
@@ -324,10 +324,10 @@ done
 
 updateConfigs
 
-deployConfigs
-
 for agent in "${!supported_agents[@]}"; do
     checkAgentInstallReqs $agent
 done
+
+deployConfigs
 
 cleanup
