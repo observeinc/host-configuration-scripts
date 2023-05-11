@@ -121,6 +121,8 @@ parseInputs () {
     case $1 in
         -c|--customer_id)
         customer_id=$2
+        echo $customer_id
+        sleep 10
         config_replacements["#REPLACE_WITH_CUSTOMER_ID#"]=$customer_id
         shift 2
         ;;
