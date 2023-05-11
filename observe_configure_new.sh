@@ -10,7 +10,11 @@ datacenter=""
 appgroup=""
 branch="main"
 validate_endpoint="TRUE"
-module="linux-host"
+modules=()
+supported_agents=("fluent" "telegraf1" "osquery1")
+archive_configs="TRUE"
+observe_domain="collect.observeinc.com"
+observe_environment=""
 
 branch="jlb/refactor"
 base_url="https://raw.githubusercontent.com/observeinc/linux-host-configuration-scripts/${branch}"
@@ -55,7 +59,7 @@ getConfigurationFiles(){
 checkAgentInstallReqs () {
     agent=$1
     if [ -d "${config_file_directory}/$agent" ]; then
-        echo "need to install fluent, or check status"
+        echo "need to install $agent, or check status"
         # get agent configs
         getConfigurationFiles "$agent" "agent"
 
@@ -109,7 +113,7 @@ getOSDetails () {
 
 parseInputs () {
     # Parse command-line options
-    options=$(getopt -o c:t:m:b:d:a:h --long customer:,ingest_token:,module:,branch:,datacenter:,appgroup:,extract_tag:,module_option:,help -- "$@")
+    options=$(getopt -o c:t:m:b:d:a:h --long customer:,ingest_token:,module:,branch:,datacenter:,appgroup:,extract_tag:,module_option:,help,module_flag,archive_configs,observe_domain: -- "$@")
     eval set -- "$options"
 
     # Handle options
@@ -126,7 +130,7 @@ parseInputs () {
         shift 2
         ;;
         -m|--module)
-        module=$2
+        modules+=($2)
         shift 2
         ;;
         -b|--branch)
@@ -155,6 +159,18 @@ parseInputs () {
         config_replacements[$(echo $2 | cut -d= -f1)]=$(echo $2 | cut -d= -f2)
         shift 2
         ;;
+        --module_flag)
+        #TODO: implement this for ec2?
+        ;;
+        --observe_domain)
+        observe_domain=$2
+        #update observe environement whenever customer_id or observe_domain is changed.
+        observe_environment="https://${customer_id}.${observe_domain}"
+        shift 2
+        ;;
+        --archive_configs)
+        #TODO: which way do we want this?
+        ;;
         -h|--help)
         printHelp
         ;;
@@ -167,6 +183,12 @@ parseInputs () {
         ;;
     esac
     done
+    #build observe environment string
+    
+    observe_environment="https:\/\/${customer_id}.${observe_domain}"
+    config_replacements["#REPLACE_WITH_OBSERVE_ENVIRONMENT#"]="${observe_environment}"
+    echo "${config_replacements[${"#REPLACE_WITH_OBSERVE_ENVIRONMENT#"}]}"
+    sleep 10
 }
 
 requiredInputs(){
@@ -244,21 +266,46 @@ updateConfigs () {
     # if [ "$ec2metadata" == TRUE ]; then
     #     sed -i "s/#REPLACE_WITH_OBSERVE_EC2_OPTION//g" $config_file_directory/*
     # fi
-
-    # if [ "$appgroup" != UNSET ]; then
-    #     sed -i "s/#REPLACE_WITH_OBSERVE_APP_GROUP_OPTION/Record appgroup ${appgroup}/g" $config_file_directory/*
-    # fi
 }
+
+cleanup () {
+    if  [ $archive_configs ]; then
+        tempdir="$(date +%Y%m%d%H%M)"
+        mkdir -p "${config_file_directory}"/archive/"${tempdir}"
+        mv "${config_file_directory}"/* "${config_file_directory}"/archive/"${tempdir}" > /dev/null 2>&1
+    fi
+}
+
+validateObserveHostName () {
+  local url="$1"
+  # check for properly formatted url input - assumes - https://<customer-id>.collect.observe[anything]/
+  # we can modify this rule to be specific as needed
+  regex='^(https?)://[0-9]+.collect.observe[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*\/'
+
+
+  if [[ $url =~ $regex ]]
+  then
+      echo "$url IS valid"
+  else
+      echo "$url IS NOT valid - example valid input - https://123456789012.collect.observeinc.com/"
+      exit 1
+  fi
+}
+
+# Do the work.
 
 parseInputs $@
 
 getOSDetails
-getConfigurationFiles "linux-host" "app"
+
+for this_module in $modules; do
+    getConfigurationFiles $this_module "app"
+done
 
 updateConfigs
 
-exit 0
+for agent in $supported_agents; do
+    checkAgentInstallReqs $agent
+done
 
-checkAgentInstallReqs "fluent"
-checkAgentInstallReqs "telegraf"
-checkAgentInstallReqs "osquery"
+cleanup
