@@ -13,8 +13,7 @@ validate_endpoint="TRUE"
 modules=()
 #supported_agents=("fluent" "telegraf1" "osquery1")
 archive_configs="TRUE"
-observe_domain="collect.observeinc.com"
-observe_environment=""
+observe_domain="observeinc.com"
 fluent_config_directory="/etc/fluent-bit/"
 telegraf_config_directory="/etc/telegraf/"
 osquery_config_directory="/etc/osquery/"
@@ -173,8 +172,6 @@ parseInputs () {
         ;;
         --observe_domain)
         observe_domain=$2
-        #update observe environement whenever customer_id or observe_domain is changed.
-        observe_environment="https://${customer_id}.${observe_domain}"
         shift 2
         ;;
         --archive_configs)
@@ -194,7 +191,7 @@ parseInputs () {
     done
     
     #build observe environment string
-    observe_environment="https:\/\/${customer_id}.${observe_domain}"
+    observe_environment="${customer_id}.collect.${observe_domain}"
     config_replacements["#REPLACE_WITH_OBSERVE_ENVIRONMENT#"]="${observe_environment}"
 }
 
@@ -279,7 +276,7 @@ deployConfigs () {
 
     for agent in "${!supported_agents[@]}"; do
         if [[ -d "${config_file_directory}/${agent}" ]]; then
-            cp -r "${config_file_directory}/${agent}"/* "${config_replacements[${agent}]}"
+            cp -r "${config_file_directory}/${agent}" "${supported_agents[${agent}]}"
             echo "copied ?  ${config_file_directory}/${agent}/* to ${supported_agents[${agent}]}"
             sleep 5
         else
