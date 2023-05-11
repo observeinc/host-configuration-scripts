@@ -14,7 +14,7 @@ modules=()
 #supported_agents=("fluent" "telegraf1" "osquery1")
 archive_configs="TRUE"
 observe_domain="observeinc.com"
-fluent_config_directory="/etc/fluent-bit/"
+fluent_config_directory="/etc/td-agent-bit/"
 telegraf_config_directory="/etc/telegraf/"
 osquery_config_directory="/etc/osquery/"
 
