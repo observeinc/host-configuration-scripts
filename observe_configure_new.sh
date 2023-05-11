@@ -113,7 +113,7 @@ getOSDetails () {
 
 parseInputs () {
     # Parse command-line options
-    options=$(getopt -o c:t:m:b:d:a:h --long customer:,ingest_token:,module:,branch:,datacenter:,appgroup:,extract_tag:,module_option:,help,module_flag,archive_configs,observe_domain: -- "$@")
+    options=$(getopt -o c:t:m:b:d:a:h --long customer_id:,ingest_token:,module:,branch:,datacenter:,appgroup:,extract_tag:,module_option:,help,module_flag,archive_configs,observe_domain: -- "$@")
     eval set -- "$options"
 
     # Handle options
