@@ -273,7 +273,7 @@ deployConfigs () {
 
     for agent in "${!supported_agents[@]}"; do
         if [[ -d "${config_file_directory}/${agent}" ]]; then
-            cp -r "${config_file_directory}/${agent}" "${supported_agents[${agent}]}"
+            sudo cp -r "${config_file_directory}/${agent}" "${supported_agents[${agent}]}"
             echo "copied ?  ${config_file_directory}/${agent}/* to ${supported_agents[${agent}]}"
             sleep 5
         else
