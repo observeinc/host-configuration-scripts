@@ -14,9 +14,6 @@ modules=()
 #supported_agents=("fluent" "telegraf1" "osquery1")
 archive_configs="TRUE"
 observe_domain="observeinc.com"
-fluent_config_directory="/etc/td-agent-bit/"
-telegraf_config_directory="/etc/telegraf/"
-osquery_config_directory="/etc/osquery/"
 
 base_url="https://raw.githubusercontent.com/observeinc/linux-host-configuration-scripts/${branch}"
 config_file_directory="$HOME/observe_config_files"
@@ -25,7 +22,7 @@ declare -A config_replacements
 declare -A fluent_record_modifiers
 declare -A supported_agents
 
-supported_agents["fluent"]="/etc/fluent-bit/"
+supported_agents["fluent"]="/etc/td-agent-bit/"
 supported_agents["telegraf1"]="/etc/telegraf/"
 supported_agents["osquery1"]="/etc/osquery/"
 
