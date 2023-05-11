@@ -11,17 +11,24 @@ appgroup=""
 branch="main"
 validate_endpoint="TRUE"
 modules=()
-supported_agents=("fluent" "telegraf1" "osquery1")
+#supported_agents=("fluent" "telegraf1" "osquery1")
 archive_configs="TRUE"
 observe_domain="collect.observeinc.com"
 observe_environment=""
+fluent_config_directory="/etc/td-agent-bit/"
+telegraf_config_directory="/etc/telegraf/"
+osquery_config_directory="/etc/osquery/"
 
-branch="jlb/refactor"
 base_url="https://raw.githubusercontent.com/observeinc/linux-host-configuration-scripts/${branch}"
 config_file_directory="$HOME/observe_config_files"
 
 declare -A config_replacements
 declare -A fluent_record_modifiers
+declare -A supported_agents
+
+supported_agents["fluent"]="/etc/td-agent-bit/"
+supported_agents["telegraf1"]="/etc/telegraf/"
+supported_agents["osquery1"]="/etc/osquery/"
 
 fluent_record_modifiers["host"]="\${HOSTNAME}"
 fluent_record_modifiers["#REPLACE_WITH_RECORD_MODIFIERS#"]=""
@@ -121,8 +128,6 @@ parseInputs () {
     case $1 in
         -c|--customer_id)
         customer_id=$2
-        echo $customer_id
-        sleep 10
         config_replacements["#REPLACE_WITH_CUSTOMER_ID#"]=$customer_id
         shift 2
         ;;
@@ -137,6 +142,8 @@ parseInputs () {
         ;;
         -b|--branch)
         branch=$2
+        echo $branch
+        base_url="https://raw.githubusercontent.com/observeinc/linux-host-configuration-scripts/${branch}"
         shift 2
         ;;
         -d|--datacenter)
@@ -185,12 +192,10 @@ parseInputs () {
         ;;
     esac
     done
-    #build observe environment string
     
+    #build observe environment string
     observe_environment="https:\/\/${customer_id}.${observe_domain}"
     config_replacements["#REPLACE_WITH_OBSERVE_ENVIRONMENT#"]="${observe_environment}"
-    echo "${config_replacements[${"#REPLACE_WITH_OBSERVE_ENVIRONMENT#"}]}"
-    sleep 10
 }
 
 requiredInputs(){
@@ -259,15 +264,28 @@ updateConfigs () {
 
     #TODO - add in logic that config file directory exists and has stuff in it
     for key in "${!config_replacements[@]}"; do
-        echo "${key} is ${config_replacements[${key}]}"
-        echo "s/${key}/${config_replacements[${key}]}/g"
-
         sed -i "s/${key}/${config_replacements[${key}]}/g" "${config_file_directory}"/*/observe/*
     done
 
     # if [ "$ec2metadata" == TRUE ]; then
     #     sed -i "s/#REPLACE_WITH_OBSERVE_EC2_OPTION//g" $config_file_directory/*
     # fi
+}
+
+deployConfigs () {
+    #TODO add in compare logic for existing files.
+    #TODO some sort of logic to avoid duplicate stanzas?
+    #TODO dry-run flag?
+
+    for agent in "${!supported_agents[@]}"; do
+        if [[ -d "${config_file_directory}/${agent}" ]]; then
+            cp -r "${config_file_directory}/${agent}"/* "${config_replacements[${agent}]}"
+            echo "copied ?  ${config_file_directory}/${agent}/* to ${supported_agents[${agent}]}"
+            sleep 5
+        else
+            echo "${config_file_directory}/${agent} does not exist - cannot deploy configuration files!"
+        fi
+    done
 }
 
 cleanup () {
@@ -306,7 +324,9 @@ done
 
 updateConfigs
 
-for agent in $supported_agents; do
+deployConfigs
+
+for agent in "${!supported_agents[@]}"; do
     checkAgentInstallReqs $agent
 done
 
