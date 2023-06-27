@@ -4,3 +4,7 @@ fluent/observe/observe-linux-host-inputs.conf
 fluent/observe/observe-linux-host-outputs.conf
 fluent/observe/observe-linux-host.conf
 fluent/observe/observe-linux-outputs-tail.conf
+telegraf/observe/observe-linux-host-inputs.conf
+telegraf/observe/observe-linux-host-inputs.conf
+telegraf/observe/observe-linux-host-inputs-ec2.conf
+osquery/osquery.conf

@@ -11,7 +11,7 @@ appgroup=""
 branch="main"
 validate_endpoint="TRUE"
 modules=()
-#supported_agents=("fluent" "telegraf1" "osquery1")
+#supported_agents=("fluent" "telegraf" "osquery")
 archive_configs="TRUE"
 observe_domain="observeinc.com"
 
