@@ -23,8 +23,8 @@ declare -A fluent_record_modifiers
 declare -A supported_agents
 
 supported_agents["fluent"]="/etc/td-agent-bit/"
-supported_agents["telegraf1"]="/etc/telegraf/"
-supported_agents["osquery1"]="/etc/osquery/"
+supported_agents["telegraf"]="/etc/telegraf/"
+supported_agents["osquery"]="/etc/osquery/"
 
 fluent_record_modifiers["host"]="\${HOSTNAME}"
 fluent_record_modifiers["#REPLACE_WITH_RECORD_MODIFIERS#"]=""
