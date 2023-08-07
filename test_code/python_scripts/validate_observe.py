@@ -6,39 +6,43 @@ import requests
 import os, sys
 
 
+def log_file_name(path_pattern: str) -> str:
+    """
+    Naive (slow) version of next_path
+    """
+    i = 1
+    while os.path.exists(path_pattern % i):
+        i += 1
+    return path_pattern % i
 
-def setup_logging():
-    """Sets up Logging"""
 
-    def log_file_name(path_pattern):
-        """
-        Naive (slow) version of next_path
-        """
-        i = 1
-        while os.path.exists(path_pattern % i):
-            i += 1
-        return path_pattern % i
+ENVIRONMENT = 'target-stage-tenant'
 
-    #Create appropriate log_path name (without overwriting)
-    logs_folder_name = "validation_outputs"
-    log_path_pattern = f"{logs_folder_name}/test-log-%s.log"
-    log_path = log_file_name(log_path_pattern)
+# Create appropriate log_path name (without overwriting)
+logs_folder_name = "validation_outputs"
+log_path_pattern = f"{logs_folder_name}/test-log-%s.log"
+log_path = log_file_name(log_path_pattern)
+log_level = 'DEBUG'
 
-    # Create a logger instance for this module
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(
-        # filename=log_path,
-        format="%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s",
-        datefmt="%m/%d/%Y %I:%M:%S %p",
-        # encoding="utf-8",
-        level='DEBUG',
-        handlers=[logging.FileHandler(log_path), logging.StreamHandler(sys.stdout)],
-    )
-    return logger
+# Set up the logger instance
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s",
+    datefmt="%m/%d/%Y %I:%M:%S %p",
+    level=log_level,  # Set the desired log level
+    handlers=[logging.FileHandler(log_path), logging.StreamHandler(sys.stdout)],
+)
+
+
 
 
 def getObserveConfig(config: str, environment: str) -> str:
-    """Fetches config file"""
+    """Fetches config file
+    @param config:
+    @param environment:
+    @return: config element
+    """
+
     # Set your Observe environment details in config\configfile.ini
     configuration = configparser.ConfigParser()
     configuration.read("config.ini")
@@ -48,10 +52,10 @@ def getObserveConfig(config: str, environment: str) -> str:
 
 
 def get_bearer_token() -> str:
+    """Logins into account and gets bearer token
+    @return: bearer_token
+    """
 
-    """Gets bearer token for login"""
-
-    ENVIRONMENT = 'target-stage-tenant'
     customer_id = getObserveConfig("customer_id", ENVIRONMENT)
     domain = getObserveConfig("domain", ENVIRONMENT)
     user_email = getObserveConfig("user_email", ENVIRONMENT)
@@ -74,17 +78,112 @@ def get_bearer_token() -> str:
     response = json.loads(
         requests.post(url, data=message, headers=header, timeout=10).text
     )
-    bear_toke = response['access_key']
-    return bear_toke
+    bearer_token = response['access_key']
+    return bearer_token
+
+def send_graphql_query(bearer_token: str, query: str) -> object:
+    """
+
+    @param bearer_token: generated from credentials
+    @param query: graphQL query
+    @return: response of graphQL query
+    """
+    customer_id = getObserveConfig("customer_id", ENVIRONMENT)
+    domain = getObserveConfig("domain", ENVIRONMENT)
+
+    # Set the GraphQL API endpoint URL
+    url = f"https://{customer_id}.{domain}.com/v1/meta"
+
+    # Set the headers (including authentication)
+    headers = {
+        "Authorization": f"""Bearer {customer_id} {bearer_token}""",
+        'Content-Type': 'application/json',
+    }
+
+    # Create the request payload
+    data = {
+        'query': query
+    }
+
+    # Send the POST request
+    response = requests.post(url, json=data, headers=headers)
+
+
+    # Handle the response
+    if response.status_code == 200:
+        result = response.json()
+        logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
+        logger.debug("Response:{}".format(result))
+        return result
+    else:
+        logger.debug("Request failed with status code:", response.status_code)
+        response.raise_for_status()
+        return None
+
+
+def get_datastream_id(bearer_token: str)-> str:
+    """Uses bearer_token and returns datastream name & datastream ID for querying
+
+    """
+
+    datastream_token = getObserveConfig("datastream_token", ENVIRONMENT).split(':')[0].strip('"')
+    query = """
+    query {
+      datastreamToken(id: "%s") {
+        id
+        name
+        datastreamId
+      }  
+    }    
+    """ % (datastream_token)
+
+    response = send_graphql_query(bearer_token, query)
+    datastream_id = response["data"]["datastreamToken"]["datastreamId"]
+
+    return datastream_id
+
+def get_dataset_id(bearer_token: str, datastream_id: str) -> str:
+    """Uses Bearer token and datastream_id to return dataset_id
+    dataset_id is used to query a dataset
+    """
+
+    datastream_token = getObserveConfig("datastream_token", ENVIRONMENT).split(':')[0].strip('"')
+    query = """    
+    query{
+      datastream(id: "%s")
+      {
+        id
+        name
+        description
+        tokens {
+          id
+        }
+        updatedDate
+        datasetId        
+      }
+      
+    }
+    """ % (datastream_id)
+
+    response = send_graphql_query(bearer_token, query)
+    dataset_id = response["data"]["datastream"]["datasetId"]
+
+    return dataset_id
+
+
+
+
 
 def main():
-    logger = setup_logging()
     logger.info("Starting Validation...")
 
-    token = get_bearer_token()
+    bearer_token = get_bearer_token()
+    datastream_id = get_datastream_id(bearer_token)
+    dataset_id = get_dataset_id(bearer_token, datastream_id)
+
+
 
 
 
 if __name__ == '__main__':
     main()
-
