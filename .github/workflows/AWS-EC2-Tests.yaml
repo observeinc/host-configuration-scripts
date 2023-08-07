@@ -167,6 +167,7 @@ jobs:
           # create output directory for archive files
           mkdir file_outputs
           mkdir log_outputs
+          mkdir validation_outputs 
 
           # install dependencies
           pip3 install -r requirements.txt

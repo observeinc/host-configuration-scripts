@@ -134,6 +134,8 @@ def config_ini(
                 customer_id = {custid}
                 domain = {domain}
                 datastream_token = {token}
+                user_email = "test"
+                user_password = "test
             """
         )
 
