@@ -34,8 +34,6 @@ logging.basicConfig(
 )
 
 
-
-
 def getObserveConfig(config: str, environment: str) -> str:
     """Fetches config file
     @param config:
@@ -82,7 +80,7 @@ def get_bearer_token() -> str:
     return bearer_token
 
 
-def send_query(bearer_token: str, query: str, url_extension: str ='', type='gql') -> object:
+def send_query(bearer_token: str, query: str, url_extension: str = '', type='gql') -> object:
     """
 
     @param bearer_token: generated from credentials
@@ -99,6 +97,7 @@ def send_query(bearer_token: str, query: str, url_extension: str ='', type='gql'
     headers = {
         "Authorization": f"""Bearer {customer_id} {bearer_token}""",
         'Content-Type': 'application/json',
+        'Accept': 'application/x-ndjson'
     }
 
     # Create the request payload for GQL/OpenAPI
@@ -114,7 +113,11 @@ def send_query(bearer_token: str, query: str, url_extension: str ='', type='gql'
     try:
         response = requests.post(url, json=data, headers=headers)
         response.raise_for_status()
-        result = response.json()
+        #result = response.json() #TODO json object is per line with new line delimiteres for openpi
+        if type == 'gql':
+            result = response.json()
+        else:
+            result = response.text
         logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
         logger.debug("Response:{}".format(result))
         return result
@@ -125,9 +128,7 @@ def send_query(bearer_token: str, query: str, url_extension: str ='', type='gql'
         return None
 
 
-
-
-def get_datastream_id(bearer_token: str)-> str:
+def get_datastream_id(bearer_token: str) -> str:
     """Uses bearer_token and returns datastream name & datastream ID for querying
 
     """
@@ -147,6 +148,7 @@ def get_datastream_id(bearer_token: str)-> str:
     datastream_id = response["data"]["datastreamToken"]["datastreamId"]
 
     return datastream_id
+
 
 def get_dataset_info(bearer_token: str, datastream_id: str) -> str:
     """Uses Bearer token and datastream_id to return dataset_id
@@ -175,12 +177,42 @@ def get_dataset_info(bearer_token: str, datastream_id: str) -> str:
     dataset_id = response["data"]["datastream"]["datasetId"]
     dataset_name = response["data"]["datastream"]["name"]
 
-
     return dataset_id, dataset_name
 
-def query_dataset(bearer_token: str, dataset_info: str) -> object:
 
-    logger.info("Querying Dataset for Dataset ID: {}".format(dataset_info[0]))
+def search_dataset_id(bearer_token: str, dataset_name: str) -> str:
+    """Uses Bearer token and dataset_name to return dataset_id
+    dataset_id is used to query a dataset
+    """
+
+    query = """    
+    query {
+        datasetSearch(labelMatches: "%s"){
+            dataset{
+                id
+                name
+            }
+        }
+    }
+    """ % (dataset_name)
+
+    response = send_query(bearer_token, query, type='gql')
+
+    dataset_id = response["data"]["datasetSearch"][0]["dataset"]["id"]
+    logging.debug("Dataset Name: {} <-->  Dataset ID: {}".format(dataset_name, dataset_id))
+
+    return dataset_id
+
+
+def query_dataset(bearer_token: str, dataset_id: str) -> object:
+    """
+
+    @param bearer_token: bearer token for authorization
+    @param dataset_info: tuple contains (<dataset_id>, <datastream_name>)
+    @return: dataset: queried dataset  in txt / json
+    """
+    # "pipeline":"filter DATASTREAM_TOKEN_ID = 'ds1xrzv4h43zYS0PQbly'|filter (not is_null(EXTRA.path))|make_col path:string(EXTRA.path)|pick_col BUNDLE_TIMESTAMP, path"
+    logger.info("Querying Dataset for Dataset ID: {}".format(dataset_id))
     query = """
      {
         "query": {
@@ -188,21 +220,21 @@ def query_dataset(bearer_token: str, dataset_info: str) -> object:
               {
                  "input":[
                      {
-                     "inputName": "%s",
+                     "inputName": "default",
                      "datasetId": "%s"
                     }
                 ],
                 "stageID":"main",
-                "pipeline":"statsby count:count()"
+                "pipeline": ""
             }
         ]
-      }
+      },
+
+      "interval" : "15m"
     }
-    """ % (dataset_info[1], dataset_info[0] )
-    send_query(bearer_token, query, url_extension='/export/query', type='openapi')
-    pass
-
-
+    """ % (dataset_id)
+    dataset = send_query(bearer_token, query, url_extension='/export/query', type='openapi')
+    return dataset
 
 
 def main():
@@ -211,13 +243,13 @@ def main():
 
     bearer_token = get_bearer_token()
 
-    datastream_id = get_datastream_id(bearer_token)
-    dataset_info = get_dataset_info(bearer_token, datastream_id)
+    fluentbit_events_id = search_dataset_id(bearer_token, "Server/Fluentbit Events")
+    telegraf_events_id = search_dataset_id(bearer_token, "Server/OSQuery Events")
+    osquery_events_id = search_dataset_id(bearer_token, "Server/Telegraf Events")
 
-    query_dataset(bearer_token, dataset_info)
+    fluent_bit_query = query_dataset(bearer_token, fluentbit_events_id)
 
-
-
+    pass
 
 
 if __name__ == '__main__':
