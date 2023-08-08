@@ -81,7 +81,8 @@ def get_bearer_token() -> str:
     bearer_token = response['access_key']
     return bearer_token
 
-def send_graphql_query(bearer_token: str, query: str) -> object:
+
+def send_query(bearer_token: str, query: str, url_extension: str ='', type='gql') -> object:
     """
 
     @param bearer_token: generated from credentials
@@ -92,7 +93,7 @@ def send_graphql_query(bearer_token: str, query: str) -> object:
     domain = getObserveConfig("domain", ENVIRONMENT)
 
     # Set the GraphQL API endpoint URL
-    url = f"https://{customer_id}.{domain}.com/v1/meta"
+    url = f"https://{customer_id}.{domain}.com/v1/meta{url_extension}"
 
     # Set the headers (including authentication)
     headers = {
@@ -100,25 +101,30 @@ def send_graphql_query(bearer_token: str, query: str) -> object:
         'Content-Type': 'application/json',
     }
 
-    # Create the request payload
-    data = {
-        'query': query
-    }
-
+    # Create the request payload for GQL/OpenAPI
+    if type == 'gql':
+        data = {
+            'query': query
+        }
+    elif type == 'openapi':
+        data = json.loads(query)
+    else:
+        data = {None}
     # Send the POST request
-    response = requests.post(url, json=data, headers=headers)
-
-
-    # Handle the response
-    if response.status_code == 200:
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
         result = response.json()
         logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
         logger.debug("Response:{}".format(result))
         return result
-    else:
-        logger.debug("Request failed with status code:", response.status_code)
-        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        logging.debug(err.request.url)
+        logging.debug(err)
+        logging.debug(err.response.text)
         return None
+
+
 
 
 def get_datastream_id(bearer_token: str)-> str:
@@ -137,12 +143,12 @@ def get_datastream_id(bearer_token: str)-> str:
     }    
     """ % (datastream_token)
 
-    response = send_graphql_query(bearer_token, query)
+    response = send_query(bearer_token, query, type='gql')
     datastream_id = response["data"]["datastreamToken"]["datastreamId"]
 
     return datastream_id
 
-def get_dataset_id(bearer_token: str, datastream_id: str) -> str:
+def get_dataset_info(bearer_token: str, datastream_id: str) -> str:
     """Uses Bearer token and datastream_id to return dataset_id
     dataset_id is used to query a dataset
     """
@@ -165,21 +171,50 @@ def get_dataset_id(bearer_token: str, datastream_id: str) -> str:
     }
     """ % (datastream_id)
 
-    response = send_graphql_query(bearer_token, query)
+    response = send_query(bearer_token, query, type='gql')
     dataset_id = response["data"]["datastream"]["datasetId"]
+    dataset_name = response["data"]["datastream"]["name"]
 
-    return dataset_id
 
+    return dataset_id, dataset_name
+
+def query_dataset(bearer_token: str, dataset_info: str) -> object:
+
+    logger.info("Querying Dataset for Dataset ID: {}".format(dataset_info[0]))
+    query = """
+     {
+        "query": {
+            "stages":[
+              {
+                 "input":[
+                     {
+                     "inputName": "%s",
+                     "datasetId": "%s"
+                    }
+                ],
+                "stageID":"main",
+                "pipeline":"statsby count:count()"
+            }
+        ]
+      }
+    }
+    """ % (dataset_info[1], dataset_info[0] )
+    send_query(bearer_token, query, url_extension='/export/query', type='openapi')
+    pass
 
 
 
 
 def main():
     logger.info("Starting Validation...")
+    logging.getLogger().setLevel(logging.DEBUG)
 
     bearer_token = get_bearer_token()
+
     datastream_id = get_datastream_id(bearer_token)
-    dataset_id = get_dataset_id(bearer_token, datastream_id)
+    dataset_info = get_dataset_info(bearer_token, datastream_id)
+
+    query_dataset(bearer_token, dataset_info)
 
 
 
