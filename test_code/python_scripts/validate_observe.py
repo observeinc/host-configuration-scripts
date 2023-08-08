@@ -4,6 +4,7 @@ import re
 import logging
 import requests
 import os, sys
+import pprint
 
 
 def log_file_name(path_pattern: str) -> str:
@@ -116,11 +117,18 @@ def send_query(bearer_token: str, query: str, url_extension: str = '', type='gql
         #result = response.json() #TODO json object is per line with new line delimiteres for openpi
         if type == 'gql':
             result = response.json()
+            logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
+            logger.debug("Response:{}".format(result))
+            return result
         else:
             result = response.text
-        logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
-        logger.debug("Response:{}".format(result))
-        return result
+            json_objects = result.strip().split('\n')
+            json_list = []
+            for obj in json_objects:
+                json_list.append(json.loads(obj))
+            logger.debug("Request for query {} successful with status code {}:".format(query, response.status_code))
+            logger.debug("Response:{}".format(json_list))
+            return json_list
     except requests.exceptions.HTTPError as err:
         logging.debug(err.request.url)
         logging.debug(err)
@@ -128,61 +136,12 @@ def send_query(bearer_token: str, query: str, url_extension: str = '', type='gql
         return None
 
 
-def get_datastream_id(bearer_token: str) -> str:
-    """Uses bearer_token and returns datastream name & datastream ID for querying
-
-    """
-
-    datastream_token = getObserveConfig("datastream_token", ENVIRONMENT).split(':')[0].strip('"')
-    query = """
-    query {
-      datastreamToken(id: "%s") {
-        id
-        name
-        datastreamId
-      }  
-    }    
-    """ % (datastream_token)
-
-    response = send_query(bearer_token, query, type='gql')
-    datastream_id = response["data"]["datastreamToken"]["datastreamId"]
-
-    return datastream_id
-
-
-def get_dataset_info(bearer_token: str, datastream_id: str) -> str:
-    """Uses Bearer token and datastream_id to return dataset_id
-    dataset_id is used to query a dataset
-    """
-
-    datastream_token = getObserveConfig("datastream_token", ENVIRONMENT).split(':')[0].strip('"')
-    query = """    
-    query{
-      datastream(id: "%s")
-      {
-        id
-        name
-        description
-        tokens {
-          id
-        }
-        updatedDate
-        datasetId        
-      }
-      
-    }
-    """ % (datastream_id)
-
-    response = send_query(bearer_token, query, type='gql')
-    dataset_id = response["data"]["datastream"]["datasetId"]
-    dataset_name = response["data"]["datastream"]["name"]
-
-    return dataset_id, dataset_name
-
-
 def search_dataset_id(bearer_token: str, dataset_name: str) -> str:
     """Uses Bearer token and dataset_name to return dataset_id
     dataset_id is used to query a dataset
+    @param bearer_token: token for querying
+    @param dataset_name: dataset name for which to find its id eg: "Server/OSQuery Events"
+    @return:
     """
 
     query = """    
@@ -204,14 +163,19 @@ def search_dataset_id(bearer_token: str, dataset_name: str) -> str:
     return dataset_id
 
 
-def query_dataset(bearer_token: str, dataset_id: str) -> object:
+def query_dataset(bearer_token: str, dataset_id: str, pipeline: str = "", interval: str ="30m") -> object:
     """
 
+    Queries the last 30 minutes (default) of a dataset returning result of query. Uses Observe OpenAPI
+
     @param bearer_token: bearer token for authorization
-    @param dataset_info: tuple contains (<dataset_id>, <datastream_name>)
-    @return: dataset: queried dataset  in txt / json
+    @param dataset_id: dataset_id to query using openAPI query
+    @param pipeline: OPAL Pipeline
+
+    @return: dataset: queried dataset  in json separated by timestamps
+
+    See  https://developer.observeinc.com/#/paths/~1v1~1meta~1export~1query/post
     """
-    # "pipeline":"filter DATASTREAM_TOKEN_ID = 'ds1xrzv4h43zYS0PQbly'|filter (not is_null(EXTRA.path))|make_col path:string(EXTRA.path)|pick_col BUNDLE_TIMESTAMP, path"
     logger.info("Querying Dataset for Dataset ID: {}".format(dataset_id))
     query = """
      {
@@ -225,14 +189,15 @@ def query_dataset(bearer_token: str, dataset_id: str) -> object:
                     }
                 ],
                 "stageID":"main",
-                "pipeline": ""
+                "pipeline": "%s"
             }
         ]
       },
 
-      "interval" : "15m"
+      "interval" : "%s"
+      
     }
-    """ % (dataset_id)
+    """ % (dataset_id, pipeline, interval)
     dataset = send_query(bearer_token, query, url_extension='/export/query', type='openapi')
     return dataset
 
@@ -241,13 +206,26 @@ def main():
     logger.info("Starting Validation...")
     logging.getLogger().setLevel(logging.DEBUG)
 
+    fluentbit_pipeline = "make_col ec2_instance_id:string(event.ec2_instance_id)|make_col " \
+                         "name:'fluentbit_events'|timechart options(bins: 1), " \
+                         "count: count_distinct_exact(1), group_by(ec2_instance_id,name)"
+
+    telegraf_pipeline = "make_col ec2_instance_id:string(tags.instanceId)|make_col name:'telegraf_events'|timechart " \
+                        "options(bins: 1), count: count_distinct_exact(1), group_by(ec2_instance_id, name)"
+
+    osquery_pipeline = "make_col ec2_instance_id:string(tags.ec2_instance_id)|make_col " \
+                       "name:'osquery_events'|timechart options(bins: 1), " \
+                       "count: count_distinct_exact(1), group_by(ec2_instance_id,name)"
+
     bearer_token = get_bearer_token()
 
     fluentbit_events_id = search_dataset_id(bearer_token, "Server/Fluentbit Events")
-    telegraf_events_id = search_dataset_id(bearer_token, "Server/OSQuery Events")
-    osquery_events_id = search_dataset_id(bearer_token, "Server/Telegraf Events")
+    osquery_events_id = search_dataset_id(bearer_token, "Server/OSQuery Events")
+    telegraf_events_id = search_dataset_id(bearer_token, "Server/Telegraf Events")
 
-    fluent_bit_query = query_dataset(bearer_token, fluentbit_events_id)
+    fluent_bit_query = query_dataset(bearer_token, fluentbit_events_id, fluentbit_pipeline)
+    osquery_query = query_dataset(bearer_token, osquery_events_id,  osquery_pipeline)
+    telegraf_query = query_dataset(bearer_token, telegraf_events_id,  telegraf_pipeline)
 
     pass
 
